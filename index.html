@@ -3,22 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempsens | Industrial TC Configurator</title>
+    <title>Tempsens | Industrial Configurator</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F3F4F6; font-family: 'Inter', -apple-system, sans-serif; }
-        .sidebar { width: 320px; background: #FFFFFF; border-right: 1px solid #E5E7EB; display: flex; flexDirection: column; height: 100vh; flex-shrink: 0; }
+        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F3F4F6; font-family: 'Inter', sans-serif; }
+        .sidebar { width: 340px; background: #FFF; border-right: 1px solid #D1D5DB; height: 100vh; display: flex; flex-direction: column; flex-shrink: 0; }
         .header { background: #2D2D2D; padding: 20px; border-bottom: 4px solid #ffa600; }
-        .config-area { padding: 15px; overflow-y: auto; flex: 1; }
-        .section-title { font-size: 11px; font-weight: 800; color: #ffa600; text-transform: uppercase; letter-spacing: 1px; margin: 15px 0 10px; border-bottom: 1px solid #EEE; padding-bottom: 4px; }
+        .config-area { padding: 20px; overflow-y: auto; flex: 1; }
+        .section-title { font-size: 11px; font-weight: 800; color: #ffa600; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px; border-bottom: 1px solid #EEE; padding-bottom: 5px; }
         label { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 4px; }
-        select, input { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #D1D5DB; fontSize: 12px; margin-bottom: 12px; background: #fff; box-sizing: border-box; }
-        .model-bar { padding: 15px 30px; background: #fff; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: space-between; align-items: center; }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #DDD; border-radius: 10px; }
+        select, input { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #D1D5DB; font-size: 13px; margin-bottom: 15px; background: #FFF; box-sizing: border-box; }
+        .warning-box { background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; padding: 10px; border-radius: 6px; font-size: 11px; margin-bottom: 15px; font-weight: 600; }
+        .model-bar { padding: 20px 30px; background: #FFF; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: space-between; align-items: center; }
+        .btn-export { background: #ffa600; color: #FFF; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .btn-export:hover { background: #e69500; }
     </style>
 </head>
 <body>
@@ -28,119 +30,122 @@
         const { useState, useEffect, useRef } = React;
         const THREE = window.THREE;
 
-        const CAT = {
-            tcTypes: ["K", "J", "N", "T", "R", "S", "B"],
-            elements: ["Simplex", "Duplex"],
-            sheaths: ["SS 316", "SS 310", "Inconel-600", "Incoloy-800", "Ceramic (Ker-610)"],
-            heads: ["Standard (Weatherproof)", "Ex-Proof (Flameproof)", "Miniature", "None"],
-            connections: ["1/2\" NPT", "1/2\" BSP", "Adjustable Flange", "Fixed Flange", "Nipple-Union-Nipple"],
-            thermowells: ["None", "Straight", "Tapered", "Stepped"],
-            twMaterials: ["SS 316", "SS 310", "Hastelloy-C", "Monel"],
-            cables: ["PVC", "Teflon", "Fiberglass", "SS Braided", "None"]
+        const DATA = {
+            types: {
+                "K": { name: "Chromel/Alumel", max: 1260 },
+                "J": { name: "Iron/Constantan", max: 760 },
+                "N": { name: "Nicrosil/Nisil", max: 1260 },
+                "R": { name: "Pt-13%Rh/Pt", max: 1450 },
+                "S": { name: "Pt-10%Rh/Pt", max: 1450 }
+            },
+            sheaths: ["SS 316", "SS 310", "Inconel 600", "Incoloy 800"],
+            flanges: ["ANSI 150# RF", "ANSI 300# RF", "ANSI 600# RF", "DIN DN25 PN16"],
+            heads: ["Standard Weatherproof (IP67)", "Flameproof (Ex-d IIC)", "None"]
         };
 
         function App() {
             const [cfg, setCfg] = useState({
-                tcType: "K", element: "Simplex", sheath: "SS 316", length: 300,
-                head: "Standard (Weatherproof)", connection: "1/2\" NPT", 
-                twType: "None", twMaterial: "SS 316", twLength: 250,
-                cable: "None", cableLen: 2, processTemp: 450
+                type: "K", sheath: "SS 316", length: 500, flange: "ANSI 150# RF",
+                head: "Standard Weatherproof (IP67)", temp: 400, junction: "Ungrounded"
             });
+            const [warnings, setWarnings] = useState([]);
 
-            const update = (k, v) => setCfg(p => ({ ...p, [k]: v }));
+            useEffect(() => {
+                let w = [];
+                if (cfg.temp > DATA.types[cfg.type].max) w.push(`Type ${cfg.type} exceeds max operating limit of ${DATA.types[cfg.type].max}°C.`);
+                if (cfg.junction === "Exposed" && cfg.flange !== "None") w.push("Exposed junctions are not recommended for high-pressure flanged assemblies.");
+                if (cfg.temp > 1000 && cfg.sheath === "SS 316") w.push("SS 316 sheath is not suitable for temperatures above 850°C. Consider SS 310 or Inconel.");
+                setWarnings(w);
+            }, [cfg]);
+
+            const exportPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.setFillColor(45, 45, 45);
+                doc.rect(0, 0, 210, 40, 'F');
+                doc.setTextColor(255, 166, 0);
+                doc.setFontSize(22);
+                doc.text("TEMPSENS INSTRUMENTS", 15, 25);
+                
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(12);
+                doc.text("TECHNICAL DATASHEET: Flanged Thermocouple Assembly", 15, 50);
+                doc.line(15, 55, 195, 55);
+
+                const rows = [
+                    ["Thermocouple Type", cfg.type],
+                    ["Sheath Material", cfg.sheath],
+                    ["Immersion Length (L)", `${cfg.length} mm`],
+                    ["Process Connection", cfg.flange],
+                    ["Terminal Head", cfg.head],
+                    ["Hot Junction", cfg.junction],
+                    ["Design Temperature", `${cfg.temp}°C`]
+                ];
+
+                rows.forEach((row, i) => {
+                    doc.text(`${row[0]}:`, 15, 70 + (i * 10));
+                    doc.setFont(undefined, 'bold');
+                    doc.text(row[1], 80, 70 + (i * 10));
+                    doc.setFont(undefined, 'normal');
+                });
+
+                doc.save(`Tempsens_${cfg.type}_Config.pdf`);
+            };
 
             return (
                 <div style={{ display: "flex", height: "100vh" }}>
-                    {/* SIDEBAR */}
                     <div className="sidebar">
                         <div className="header">
                             <div style={{ color: "#ffa600", fontWeight: "900", fontSize: "20px" }}>TEMPSENS</div>
-                            <div style={{ color: "#FFFFFF", fontSize: "10px", opacity: 0.7 }}>PRECISION THERMAL ENGINEERING</div>
+                            <div style={{ color: "#FFF", fontSize: "10px", opacity: 0.7 }}>A-110 FLANGED STANDARD</div>
                         </div>
-                        
                         <div className="config-area">
-                            <div className="section-title">TC Element & Sheath</div>
+                            {warnings.map((msg, i) => <div key={i} className="warning-box">⚠️ {msg}</div>)}
+                            
+                            <div className="section-title">Sensor Spec</div>
                             <label>TC Type</label>
-                            <select value={cfg.tcType} onChange={e => update("tcType", e.target.value)}>
-                                {CAT.tcTypes.map(t => <option key={t} value={t}>Type {t}</option>)}
+                            <select value={cfg.type} onChange={e => setCfg({...cfg, type: e.target.value})}>
+                                {Object.keys(DATA.types).map(t => <option key={t} value={t}>Type {t}</option>)}
                             </select>
 
-                            <label>Element</label>
-                            <select value={cfg.element} onChange={e => update("element", e.target.value)}>
-                                {CAT.elements.map(e => <option key={e} value={e}>{e}</option>)}
+                            <label>Junction Type</label>
+                            <select value={cfg.junction} onChange={e => setCfg({...cfg, junction: e.target.value})}>
+                                <option>Grounded</option>
+                                <option>Ungrounded</option>
+                                <option>Exposed</option>
                             </select>
 
+                            <div className="section-title">Mechanical</div>
                             <label>Sheath Material</label>
-                            <select value={cfg.sheath} onChange={e => update("sheath", e.target.value)}>
-                                {CAT.sheaths.map(s => <option key={s} value={s}>{s}</option>)}
+                            <select value={cfg.sheath} onChange={e => setCfg({...cfg, sheath: e.target.value})}>
+                                {DATA.sheaths.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            
+                            <label>Flange Rating</label>
+                            <select value={cfg.flange} onChange={e => setCfg({...cfg, flange: e.target.value})}>
+                                {DATA.flanges.map(f => <option key={f} value={f}>{f}</option>)}
                             </select>
 
-                            <label>Immersion Length (L) mm</label>
-                            <input type="number" value={cfg.length} onChange={e => update("length", e.target.value)} />
+                            <label>Immersion Length (mm)</label>
+                            <input type="number" value={cfg.length} onChange={e => setCfg({...cfg, length: e.target.value})} />
 
-                            <div className="section-title">Process Connection</div>
-                            <label>Head Type</label>
-                            <select value={cfg.head} onChange={e => update("head", e.target.value)}>
-                                {CAT.heads.map(h => <option key={h} value={h}>{h}</option>)}
-                            </select>
-
-                            <label>Thread / Flange</label>
-                            <select value={cfg.connection} onChange={e => update("connection", e.target.value)}>
-                                {CAT.connections.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-
-                            <div className="section-title">Thermowell</div>
-                            <label>Well Type</label>
-                            <select value={cfg.twType} onChange={e => update("twType", e.target.value)}>
-                                {CAT.thermowells.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-
-                            {cfg.twType !== "None" && (
-                                <>
-                                    <label>Well Material</label>
-                                    <select value={cfg.twMaterial} onChange={e => update("twMaterial", e.target.value)}>
-                                        {CAT.twMaterials.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                    <label>Well Length (U) mm</label>
-                                    <input type="number" value={cfg.twLength} onChange={e => update("twLength", e.target.value)} />
-                                </>
-                            )}
-
-                            <div className="section-title">Extension & Data</div>
-                            <label>Cable Type</label>
-                            <select value={cfg.cable} onChange={e => update("cable", e.target.value)}>
-                                {CAT.cables.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-
-                            {cfg.cable !== "None" && (
-                                <>
-                                    <label>Cable Length (m)</label>
-                                    <input type="number" value={cfg.cableLen} onChange={e => update("cableLen", e.target.value)} />
-                                </>
-                            )}
-
+                            <div className="section-title">Operating Data</div>
                             <label>Process Temperature (°C)</label>
-                            <input type="number" value={cfg.processTemp} onChange={e => update("processTemp", e.target.value)} />
+                            <input type="number" value={cfg.temp} onChange={e => setCfg({...cfg, temp: e.target.value})} />
                         </div>
                     </div>
 
-                    {/* MAIN VIEW */}
-                    <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column" }}>
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                         <div className="model-bar">
                             <div>
-                                <span style={{ color: "#64748B", fontSize: "11px", fontWeight: "700" }}>CURRENT CONFIGURATION</span>
-                                <div style={{ fontSize: "22px", fontWeight: "800", color: "#2D2D2D" }}>
-                                    T-{cfg.tcType}-{cfg.length}-{cfg.element[0]}
+                                <span style={{ color: "#64748B", fontSize: "11px", fontWeight: "700" }}>BASE MODEL: T-110</span>
+                                <div style={{ fontSize: "24px", fontWeight: "800", color: "#2D2D2D" }}>
+                                    TS-{cfg.type}-{cfg.length}-FL
                                 </div>
                             </div>
-                            <div style={{textAlign: 'right'}}>
-                                <div style={{fontSize: '11px', color: '#64748B'}}>OPERATING LIMIT</div>
-                                <div style={{fontSize: '16px', fontWeight: '700', color: cfg.processTemp > 1000 ? '#EF4444' : '#10B981'}}>
-                                    {cfg.processTemp}°C
-                                </div>
-                            </div>
+                            <button className="btn-export" onClick={exportPDF}>DOWNLOAD PDF</button>
                         </div>
-                        <div id="canvas-container" style={{ flex: 1, background: "#F9FAFB" }}>
+                        <div style={{ flex: 1, background: "#F9FAFB" }}>
                             <Viewer3D cfg={cfg} />
                         </div>
                     </div>
@@ -151,44 +156,37 @@
         function Viewer3D({ cfg }) {
             const mountRef = useRef(null);
             useEffect(() => {
-                const w = mountRef.current.clientWidth, h = mountRef.current.clientHeight;
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xF9FAFB);
-                const camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 1000);
+                const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
                 const renderer = new THREE.WebGLRenderer({ antialias: true });
-                renderer.setSize(w, h);
+                renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
                 mountRef.current.appendChild(renderer.domElement);
 
                 scene.add(new THREE.AmbientLight(0xffffff, 0.8));
                 const sun = new THREE.DirectionalLight(0xffffff, 1);
-                sun.position.set(5, 10, 7);
+                sun.position.set(5, 10, 5);
                 scene.add(sun);
 
                 const group = new THREE.Group();
-                scene.add(group);
-
                 // Sheath
-                const sMat = new THREE.MeshStandardMaterial({ color: 0xCBD5E1, metalness: 0.9, roughness: 0.1 });
-                const sheath = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 32), sMat);
+                const sheath = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 32), new THREE.MeshStandardMaterial({ color: 0xCBD5E1, metalness: 0.8 }));
                 group.add(sheath);
+
+                // Flange (Disc)
+                const flange = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.4, 32), new THREE.MeshStandardMaterial({ color: 0x94A3B8, metalness: 0.7 }));
+                flange.position.y = 1;
+                group.add(flange);
 
                 // Head
                 if (cfg.head !== "None") {
-                    const hMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5 });
-                    const head = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.8, 1.5, 6), hMat);
-                    head.position.y = 4.7;
+                    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 6), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+                    head.position.y = 4.8;
                     group.add(head);
                 }
 
-                // Thermowell
-                if (cfg.twType !== "None") {
-                    const twMat = new THREE.MeshStandardMaterial({ color: 0x94A3B8, transparent: true, opacity: 0.6 });
-                    const well = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 6, 32), twMat);
-                    well.position.y = -2;
-                    group.add(well);
-                }
-
-                camera.position.set(8, 5, 12);
+                scene.add(group);
+                camera.position.set(8, 6, 12);
                 camera.lookAt(0, 0, 0);
 
                 const animate = () => {
@@ -197,10 +195,8 @@
                     renderer.render(scene, camera);
                 };
                 animate();
-
-                return () => { if(mountRef.current) mountRef.current.removeChild(renderer.domElement); };
+                return () => { if(mountRef.current) mountRef.current.innerHTML = ""; };
             }, [cfg]);
-
             return <div ref={mountRef} style={{ width: "100%", height: "100%" }} />;
         }
 
