@@ -9,28 +9,28 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <style>
-        body, html, #root {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-        }
+        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // Redefining React hooks for the global scope since we aren't using a bundler
+        // 1. Hook Mapping
         const { useState, useEffect, useRef } = React;
         const THREE = window.THREE;
 
-        /* Paste your entire thermocouple-configurator.jsx content here */
-        /* Note: Remove the "import" lines from the top of your JSX file when pasting below */
+        // 2. PASTE YOUR CATALOG AND LOGIC HERE (starting from const CAT = { ... })
+        const CAT = {
+           // ... (pasted from your file)
+        };
 
-        // [PASTE CONTENT HERE]
-        
+        // 3. YOUR APP FUNCTION (without "export default")
+        function App() {
+           // ... (pasted from your file)
+        }
+
+        // 4. Render Trigger
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
