@@ -3,317 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempsens Thermocouple Configurator</title>
+    <title>Tempsens | Thermocouple Configurator</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <style>
-        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F0F4FA; }
+        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F3F4F6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // Mapping hooks for browser environment
         const { useState, useEffect, useRef } = React;
         const THREE = window.THREE;
 
-        /* --- CATALOG DATA --- */
         const CAT = {
           tcTypes: [
-            { code:"K", name:"Chromel / Alumel",       alloy:"Ni-Cr / Ni-Al",  range:"-200 to 1250°C", app:"Oxidizing / inert",               noble:false, refrac:false, col:0xE07030 },
-            { code:"J", name:"Iron / Constantan",       alloy:"Fe / Cu-Ni",     range:"0 to 750°C",     app:"Vacuum, oxidizing, reducing",      noble:false, refrac:false, col:0x4477EE },
-            { code:"N", name:"Nicrosil / Nisil",         alloy:"Ni-Cr-Si/Ni-Si", range:"-270 to 1300°C", app:"Oxidizing / inert",               noble:false, refrac:false, col:0xEEAA00 },
-            { code:"T", name:"Copper / Constantan",      alloy:"Cu / Cu-Ni",     range:"-200 to 350°C",  app:"Inert, oxidizing, reducing",       noble:false, refrac:false, col:0xCC7733 },
-            { code:"E", name:"Chromel / Constantan",     alloy:"Ni-Cr / Cu-Ni",  range:"-200 to 900°C",  app:"Oxidizing / inert (max EMF)",      noble:false, refrac:false, col:0x44AA44 },
-            { code:"R", name:"Pt-13%Rh / Pure Pt",       alloy:"Pt-Rh / Pt",     range:"0 to 1450°C",    app:"Inert / oxidizing",               noble:true,  refrac:false, col:0xDDDDD0 },
-            { code:"S", name:"Pt-10%Rh / Pure Pt",       alloy:"Pt-Rh / Pt",     range:"0 to 1450°C",    app:"Inert / oxidizing",               noble:true,  refrac:false, col:0xE0E0D8 },
-            { code:"B", name:"Pt-30%Rh / Pt-6%Rh",       alloy:"Pt-Rh / Pt-Rh",  range:"0 to 1700°C",    app:"Inert / oxidizing",               noble:true,  refrac:false, col:0xEEDDBB },
-            { code:"C", name:"W-5%Re / W-26%Re",          alloy:"W-Re / W-Re",    range:"0 to 2320°C",    app:"Vacuum / inert / H2 ONLY",        noble:false, refrac:true,  col:0x9999BB },
-            { code:"D", name:"W-3%Re / W-25%Re",          alloy:"W-Re / W-Re",    range:"0 to 2320°C",    app:"Vacuum / inert / H2 ONLY",        noble:false, refrac:true,  col:0x7799AA },
+            { code:"K", name:"Chromel / Alumel", col:0xE07030 },
+            { code:"J", name:"Iron / Constantan", col:0x4477EE },
+            { code:"N", name:"Nicrosil / Nisil", col:0xEEAA00 },
+            { code:"T", name:"Copper / Constantan", col:0xCC7733 },
+            { code:"R", name:"Pt-13%Rh / Pure Pt", col:0xDDDDD0 },
+            { code:"S", name:"Pt-10%Rh / Pure Pt", col:0xE0E0D8 },
+            { code:"B", name:"Pt-30%Rh / Pt-6%Rh", col:0xEEDDBB }
           ],
-          elements:[
-            {code:"S",label:"Simplex (Single Element)"},
-            {code:"D",label:"Duplex (Dual Element)"},
-            {code:"M",label:"Multipoint"},
-          ],
-          junctions:[
-            {code:"GN",name:"Grounded",   desc:"Welded to sheath tip — fastest MI response, high-pressure rated"},
-            {code:"UN",name:"Ungrounded", desc:"Floating in MgO — full electrical isolation, standard industrial"},
-            {code:"EX",name:"Exposed",    desc:"Extends beyond sheath — fastest response, non-corrosive gas only"},
-          ],
-          sheaths:[
-            {code:"316",name:"SS 316",       maxT:900,  col:0xCCCCCC},
-            {code:"310",name:"SS 310",       maxT:1150, col:0xBBBBBE},
-            {code:"600",name:"Inconel-600",  maxT:1150, col:0x99997A},
-            {code:"800",name:"Incoloy-800",  maxT:1000, col:0x9A9A9A},
-            {code:"446",name:"HRS-446",      maxT:1100, col:0xA8A8B0},
-            {code:"Pt", name:"Platinum",     maxT:1600, col:0xEAE8DE},
-            {code:"Mo", name:"Molybdenum",   maxT:1900, col:0x909098},
-          ],
-          diameters:[1,1.5,3,4.5,6,8],
-          heads:[
-            {code:"C", name:"Connection Head",  ip:"IP 67",  atex:"—"},
-            {code:"D", name:"Double Entry Head",ip:"IP 65",  atex:"—"},
-            {code:"EB",name:"Ex-D IIB Head",    ip:"IP 65+", atex:"Zone 1 & 2"},
-            {code:"EC",name:"Ex-D IIC Head",    ip:"IP 65+", atex:"Zone 1 & 2"},
-            {code:"M", name:"Miniature Head",   ip:"IP 40",  atex:"—"},
-            {code:"P", name:"Plastic Head",     ip:"IP 54",  atex:"—"},
-            {code:"None",name:"No Head (Cable)",ip:"—",      atex:"—"},
-          ],
-          thermowells:[
-            {code:"None",      name:"No Thermowell",          model:"",      shape:"none"},
-            {code:"Straight",  name:"Straight Thermowell",    model:"A-100", shape:"straight"},
-            {code:"Tapered",   name:"Tapered Thermowell",     model:"A-103", shape:"tapered"},
-            {code:"Stepped",   name:"Stepped Thermowell",     model:"A-105", shape:"stepped"},
-            {code:"HeavyWall", name:"Heavy Duty Thick Wall",  model:"A-109", shape:"straight"},
-            {code:"Flanged",   name:"Straight TW + Flange",   model:"A-110", shape:"straight"},
-            {code:"TaperFlange",name:"Tapered TW + Flange",   model:"A-111", shape:"tapered"},
-          ],
-          twMaterials:[
-            {code:"316",name:"SS 316",          maxT:900},
-            {code:"310",name:"SS 310",          maxT:1150},
-            {code:"304",name:"SS 304",          maxT:850},
-            {code:"600",name:"Inconel-600",     maxT:1150},
-            {code:"800",name:"Incoloy-800",     maxT:1000},
-            {code:"446",name:"HRS-446",         maxT:1100},
-            {code:"WC", name:"Tungsten Carbide",maxT:800},
-          ],
-          connections:[
-            {code:"BSP",    name:"BSP Thread"},
-            {code:"NPT",    name:"NPT Thread"},
-            {code:"M20",    name:"M-Thread M20x1.5"},
-            {code:"M27",    name:"M-Thread M27x2"},
-            {code:"Nipple", name:"Nipple 1/2\" SCH 80"},
-            {code:"NUN",    name:"Nipple-Union-Nipple (N/U/N)"},
-            {code:"F150",   name:"ANSI Flange #150 RF"},
-            {code:"F300",   name:"ANSI Flange #300 RF"},
-            {code:"F600",   name:"ANSI Flange #600 RF"},
-            {code:"Bayonet",name:"Bayonet (Spring-loaded)"},
-            {code:"WeldPad",name:"Weld Pad (Surface Mount)"},
-          ],
-          cables:[
-            {code:"A",   name:"Teflon/Teflon + Teflon jacket",   maxT:260, col:0xE8E8E8},
-            {code:"B",   name:"Teflon + SS316 wire braid",        maxT:260, col:0x909090},
-            {code:"C",   name:"FG/FG insulated flexible",         maxT:600, col:0xDDBB99},
-            {code:"D",   name:"PVC/PVC insulated flexible",       maxT:105, col:0x222222},
-            {code:"E",   name:"FG/FG + SS wire braided",          maxT:600, col:0x777060},
-            {code:"None",name:"No Extension Cable",               maxT:0,   col:0xAAAAAA},
-          ],
-          fittingThreads:["1/4\"","3/8\"","1/2\"","3/4\"","1\"","1-1/4\"","1-1/2\"","2\"","M18x1.5","M20x1.5","M27x2","M33x2"],
+          elements:[{code:"S",label:"Simplex"},{code:"D",label:"Duplex"}],
+          junctions:[{code:"GN",name:"Grounded"},{code:"UN",name:"Ungrounded"},{code:"EX",name:"Exposed"}],
+          sheaths:[{code:"316",name:"SS 316"},{code:"310",name:"SS 310"},{code:"600",name:"Inconel-600"}],
+          diameters:[1, 1.5, 3, 4.5, 6, 8],
+          connections:[{code:"NPT",name:"NPT Thread"},{code:"BSP",name:"BSP Thread"},{code:"F150",name:"ANSI Flange #150"}],
+          heads:[{code:"C",name:"Standard Head"},{code:"EB",name:"Ex-Proof Head"},{code:"None",name:"No Head"}],
+          thermowells:[{code:"None",name:"No Thermowell"},{code:"Straight",name:"Straight"},{code:"Tapered",name:"Tapered"}]
         };
 
-        /* --- LOGIC FUNCTIONS --- */
-        function deriveModel(c){
-          const tc=CAT.tcTypes.find(t=>t.code===c.tcType);
-          if(tc?.noble){if(c.thermowell!=="None")return c.connection?.startsWith("F")?"T-805":"T-804";return c.head!=="None"?"T-803":"T-800";}
-          if(tc?.refrac)return c.cable!=="None"?"T-988":"T-990";
-          if(c.thermowell!=="None"){
-            if(c.connection==="NUN")return["Tapered","TaperFlange"].includes(c.thermowell)?"T-651":"T-653";
-            if(c.connection==="Nipple")return["Tapered","TaperFlange"].includes(c.thermowell)?"T-650":"T-652";
-            if(c.connection?.startsWith("F")){if(["Tapered","TaperFlange"].includes(c.thermowell))return c.connection==="F150"?"T-726":"T-727";if(c.thermowell==="Stepped")return"T-732";return"T-729";}
-            if(["Tapered","TaperFlange"].includes(c.thermowell))return"T-503";
-            if(c.cable!=="None")return"T-504";
-            return"T-501";
-          }
-          if(c.head==="None"){if(c.connection==="Bayonet")return"T-203";if(c.connection==="WeldPad")return"T-206";return c.cable!=="None"?"T-201":"T-200";}
-          if(c.connection==="WeldPad")return"T-104";if(c.connection==="Nipple")return"T-105";if(c.connection==="NUN")return"T-106";
-          return"T-101";
-        }
+        const LS = {
+            lbl: { fontSize: "10px", fontWeight: "800", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px", display: "block" },
+            sel: { width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #D1D5DB", fontSize: "12px", marginBottom: "12px", background: "#fff" }
+        };
 
-        function validate(c){
-          const E=[],W=[],I=[];
-          const tc=CAT.tcTypes.find(t=>t.code===c.tcType);
-          const sh=CAT.sheaths.find(s=>s.code===c.sheath);
-          const cb=CAT.cables.find(x=>x.code===c.cable);
-          const twm=CAT.twMaterials.find(m=>m.code===c.twMaterial);
-          const pT=parseInt(c.processTemp)||0;
-          if(tc?.refrac)E.push("Type C/D: NEVER expose to oxidising atmosphere above 300°C. Vacuum, inert gas, or H2 only (ASTM E696).");
-          if(tc?.noble)I.push("Noble metal (R/S/B): ceramic protection tubes Ker-610/Ker-710 mandatory. Use TC-alloy terminal lugs.");
-          if(c.junction==="EX"&&c.thermowell!=="None")E.push("Exposed (EX) junction incompatible with thermowell.");
-          if(c.junction==="EX")W.push("Exposed junction: non-corrosive gas measurement only. Not rated for pressure.");
-          if(c.element==="D"&&c.junction==="GN")W.push("Grounded + duplex: risk of ground loops. Prefer Ungrounded (UN).");
-          if(sh&&pT&&sh.maxT<pT)W.push(`Sheath max ${sh.maxT}°C below process temp ${pT}°C. Upgrade sheath material.`);
-          if(cb&&cb.code!=="None"&&sh&&cb.maxT<sh.maxT)W.push(`Cable Type-${c.cable} rated to ${cb.maxT}°C, sheath to ${sh.maxT}°C.`);
-          if(c.thermowell!=="None"&&(c.connection==="WeldPad"||c.connection==="Bayonet"))E.push(`${c.connection} incompatible with thermowell assemblies.`);
-          if((c.head==="EB"||c.head==="EC")&&!["BSP","NPT"].includes(c.connection))W.push("Ex-proof heads (EB/EC) use 1/2\" NPT or BSP only.");
-          if(c.connection==="WeldPad")I.push("Weld Pad: specify pipe OD — underside radius must match.");
-          if(c.thermowell!=="None"&&twm&&sh&&twm.maxT<sh.maxT)W.push(`TW material max ${twm.maxT}°C lower than sheath max ${sh.maxT}°C.`);
-          if(c.element==="D"&&c.cable!=="None")I.push("Duplex + cable: use 4-conductor compensating cable.");
-          if(c.thermowell!=="None")I.push("Compression spring recommended — +15-30% response improvement.");
-          return{E,W,I};
-        }
+        function App() {
+            const [cfg, setCfg] = useState({
+                tcType: "K", element: "S", junction: "UN", sheath: "316",
+                diameter: 6, connection: "NPT", head: "C", thermowell: "None"
+            });
 
-        function makeBOM(c){
-          const tc=CAT.tcTypes.find(t=>t.code===c.tcType),sh=CAT.sheaths.find(s=>s.code===c.sheath),hd=CAT.heads.find(h=>h.code===c.head),jx=CAT.junctions.find(j=>j.code===c.junction),tw=CAT.thermowells.find(t=>t.code===c.thermowell),twm=CAT.twMaterials.find(m=>m.code===c.twMaterial),cb=CAT.cables.find(x=>x.code===c.cable),cn=CAT.connections.find(x=>x.code===c.connection),el=CAT.elements.find(e=>e.code===c.element);
-          return[
-            {no:"01",item:"TC Element",         spec:`Type ${c.tcType} — ${tc?.name} (${tc?.alloy})`,qty:c.element==="D"?"2 pcs":"1 pc"},
-            {no:"02",item:"Configuration",      spec:el?.label,qty:"—"},
-            {no:"03",item:"Junction Type",      spec:`${jx?.name} (${c.junction})`,qty:"1 pc"},
-            {no:"04",item:"MI Sheath",          spec:`${sh?.name} · Ø${c.diameter}mm OD · L=${c.length}mm`,qty:"1 pc"},
-            c.head!=="None"&&{no:"05",item:"Connection Head",spec:`Type ${c.head} — ${hd?.name} · ${hd?.ip}${hd?.atex!=="—"?" · ATEX "+hd?.atex:""}`,qty:"1 pc"},
-            {no:"06",item:"Process Connection", spec:`${cn?.name}${c.fittingThread?" · Thread: "+c.fittingThread:""}`,qty:"1 pc"},
-            c.thermowell!=="None"&&{no:"07",item:`Thermowell (${tw?.model})`,spec:`${tw?.name} · ${twm?.name} · I.L.=${c.insertionLen}mm`,qty:"1 pc"},
-            c.thermowell!=="None"&&{no:"08",item:"Compression Spring",spec:"SS 316 · Tip-to-well contact · +15-30% response",qty:"1 pc"},
-            cb?.code!=="None"&&{no:"09",item:`Cable Type-${c.cable}`,spec:`${cb?.name} · ${c.cableLen}m · max ${cb?.maxT}°C`,qty:`${c.cableLen}m`},
-            {no:"10",item:"Tag Plate",          spec:"SS 316 · Laser engraved: Tag no., Loop no., TC type",qty:"1 pc"},
-          ].filter(Boolean);
-        }
+            const update = (k, v) => setCfg(p => ({ ...p, [k]: v }));
 
-        function downloadDatasheet(c){
-          const mc=deriveModel(c),tc=CAT.tcTypes.find(t=>t.code===c.tcType),sh=CAT.sheaths.find(s=>s.code===c.sheath),hd=CAT.heads.find(h=>h.code===c.head),jx=CAT.junctions.find(j=>j.code===c.junction),tw=CAT.thermowells.find(t=>t.code===c.thermowell),twm=CAT.twMaterials.find(m=>m.code===c.twMaterial),cb=CAT.cables.find(x=>x.code===c.cable),cn=CAT.connections.find(x=>x.code===c.connection),el=CAT.elements.find(e=>e.code===c.element),bom=makeBOM(c),val=validate(c),date=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"long",year:"numeric"});
-          const vb=(items,type)=>{if(!items.length)return"";const s={E:{bg:"#fff5f5",bl:"#e53e3e",lb:"ERROR",lc:"#c53030"},W:{bg:"#fffbeb",bl:"#d69e2e",lb:"WARNING",lc:"#b7791f"},I:{bg:"#ebf8ff",bl:"#3182ce",lb:"INFO",lc:"#2b6cb0"}}[type];return items.map(m=>`<div style="background:${s.bg};border-left:4px solid ${s.bl};padding:8px 14px;margin:0 0 6px;border-radius:0 6px 6px 0;font-size:12px;color:#2d3748"><b style="color:${s.lc};font-family:monospace">${s.lb}</b> &nbsp;${m}</div>`).join("");};
-          const rows=[["Model Code",`<b style="color:#1E3A7A;font-size:15px">${mc}</b>`],["TC Type",`Type ${c.tcType} — ${tc?.name}`],["Alloy (+ / -)",tc?.alloy||"—"],["Temperature Range",tc?.range||"—"],["Application",tc?.app||"—"],["Configuration",el?.label||"—"],["Junction Style",`${c.junction} — ${jx?.name}`],["Sheath Material",`${sh?.name} (max ${sh?.maxT}°C)`],["Sheath OD",`Ø${c.diameter} mm`],["Overall TC Length (L)",`${c.length} mm`],["Connection Head",c.head==="None"?"None":`Type ${c.head} — ${hd?.name} · ${hd?.ip}${hd?.atex!=="—"?" · ATEX "+hd?.atex:""}`],["Process Connection",cn?.name||"—"],["Fitting Thread",c.fittingThread||"N/A"],["Thermowell",c.thermowell==="None"?"None":`${tw?.name} (${tw?.model})`],["TW Material",c.thermowell!=="None"?`${twm?.name} (max ${twm?.maxT}°C)`:"N/A"],["Insertion Length",c.thermowell!=="None"?`${c.insertionLen} mm`:"N/A"],["Extension Cable",cb?.code==="None"?"None":`Type ${c.cable} — ${cb?.name}`],["Cable Length",cb?.code!=="None"?`${c.cableLen} m`:"N/A"],["Process Temperature",c.processTemp?`${c.processTemp}°C`:"Not specified"]];
-          const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${mc} Tempsens Datasheet</title><style>@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',Arial,sans-serif;color:#2d3748;background:#fff;font-size:13px;line-height:1.5}.page{max-width:900px;margin:0 auto;padding:32px}h2{font-size:11px;font-weight:800;color:#1E3A7A;text-transform:uppercase;letter-spacing:.16em;margin:26px 0 10px;padding-bottom:5px;border-bottom:2.5px solid #1E3A7A}table{width:100%;border-collapse:collapse}th{background:#1E3A7A;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:7px 11px;border:1px solid #163060;text-align:left}td{padding:7px 11px;border:1px solid #e2e8f0;vertical-align:top;font-size:12px}tr:nth-child(even) td{background:#f7fafc}.lbl{width:210px;background:#f7fafc!important;font-weight:600;color:#4a5568}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.np{display:none}@page{margin:18mm}}</style></head><body><div class="page"><div style="background:linear-gradient(135deg,#1E3A7A,#2563EB);border-radius:10px;padding:24px 28px;color:#fff;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px"><div><div style="font-size:9px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;opacity:.7;margin-bottom:6px">Tempsens Instruments (I) Pvt. Ltd.</div><div style="font-size:22px;font-weight:800">Thermocouple Assembly</div><div style="font-size:13px;opacity:.8;margin-top:4px">T-Series Product Configuration &amp; Datasheet</div></div><div style="text-align:right"><div style="font-family:monospace;font-size:38px;font-weight:700;color:#FCD34D;line-height:1">${mc}</div><div style="font-size:11px;opacity:.65;margin-top:4px">Generated: ${date}</div></div></div><div class="np" style="background:#fef9c3;border:1.5px solid #fde68a;border-radius:7px;padding:9px 15px;margin-bottom:18px;font-size:12px;color:#78350f"><span style="font-size:18px">📄</span> <b>Save as PDF:</b> Press <kbd style="background:#fff;border:1px solid #ccc;padding:1px 5px;border-radius:3px;font-family:monospace">Ctrl+P</kbd> → Destination → <b>"Save as PDF"</b> → Save.</div><h2>Configuration Summary</h2><table style="margin-bottom:22px">${rows.map(([l,v])=>`<tr><td class="lbl">${l}</td><td>${v}</td></tr>`).join("")}</table><h2>Bill of Materials</h2><table style="margin-bottom:22px"><thead><tr><th style="width:36px;text-align:center">No.</th><th style="width:160px">Item</th><th>Specification</th><th style="width:64px;text-align:center">Qty</th></tr></thead><tbody>${bom.map((r,i)=>`<tr style="background:${i%2===0?"#f7fafc":"#fff"}"><td style="text-align:center;color:#718096;font-weight:600;font-size:11px">${r.no}</td><td style="font-weight:600">${r.item}</td><td style="color:#4a5568;font-size:11.5px">${r.spec}</td><td style="text-align:center;font-weight:700;color:#1E3A7A">${r.qty}</td></tr>`).join("")}</tbody></table><h2>Engineering Validation</h2><div style="margin-bottom:22px">${val.E.length===0&&val.W.length===0&&val.I.length===0?`<div style="background:#f0fff4;border-left:4px solid #48bb78;padding:10px 16px;border-radius:0 6px 6px 0;font-size:12px;color:#276749;font-weight:600">&#x2713; Configuration valid — no issues detected.</div>`:vb(val.E,"E")+vb(val.W,"W")+vb(val.I,"I")}</div><h2>TC Type Reference (IEC 584 / ASTM E230)</h2><table style="margin-bottom:26px"><thead><tr><th style="width:44px">Type</th><th>Name</th><th>Alloy</th><th style="width:120px">Range</th><th>Application</th></tr></thead><tbody>${CAT.tcTypes.map((t,i)=>`<tr style="background:${t.code===c.tcType?"#ebf8ff":i%2===0?"#f7fafc":"#fff"}"><td style="text-align:center;font-weight:${t.code===c.tcType?700:400};color:${t.code===c.tcType?"#1E3A7A":"inherit"}">${t.code}</td><td style="font-size:11px">${t.name}</td><td style="font-size:11px">${t.alloy}</td><td style="font-size:11px">${t.range}</td><td style="font-size:11px">${t.app}</td></tr>`).join("")}</tbody></table><div style="border-top:2px solid #e2e8f0;padding-top:12px;display:flex;justify-content:space-between"><div style="font-size:10px;color:#a0aec0"><b style="color:#1E3A7A">Tempsens Instruments (I) Pvt. Ltd.</b> · Udaipur, India · www.tempsens.com<br/>Auto-generated from Tempsens T-Series Product Guide.</div><div style="font-size:10px;color:#a0aec0;text-align:right">Model: <b style="color:#1E3A7A">${mc}</b><br/>Rev. ${date}</div></div></div></body></html>`;
-          const blob=new Blob([html],{type:"text/html;charset=utf-8"});
-          const url=URL.createObjectURL(blob);
-          const a=document.createElement("a");a.href=url;a.download=`${mc}_Tempsens_Datasheet.html`;document.body.appendChild(a);a.click();document.body.removeChild(a);
-          setTimeout(()=>URL.revokeObjectURL(url),5000);
-        }
+            return (
+                <div style={{ display: "flex", height: "100vh" }}>
+                    {/* SIDEBAR */}
+                    <div style={{ width: "300px", background: "#FFFFFF", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column" }}>
+                        <div style={{ background: "#2D2D2D", padding: "20px", borderBottom: "4px solid #ffa600" }}>
+                            <div style={{ color: "#ffa600", fontWeight: "900", fontSize: "18px", letterSpacing: "1px" }}>TEMPSENS</div>
+                            <div style={{ color: "#FFFFFF", fontSize: "10px", opacity: 0.8 }}>THERMAL SOLUTIONS CONFIGURATOR</div>
+                        </div>
+                        
+                        <div style={{ padding: "20px", overflowY: "auto", flex: 1 }}>
+                            <label style={LS.lbl}>Thermocouple Type</label>
+                            <select style={LS.sel} value={cfg.tcType} onChange={e => update("tcType", e.target.value)}>
+                                {CAT.tcTypes.map(t => <option key={t.code} value={t.code}>Type {t.code}</option>)}
+                            </select>
 
-        /* --- 3D VIEWER COMPONENT --- */
-        function Viewer3D({cfg}){
-          const mountRef=useRef(null);
-          const S=useRef({scene:null,ren:null,cam:null,grp:null,frame:null,mx:0,my:0,rotY:0.15,rotX:-0.05,drag:false});
+                            <label style={LS.lbl}>Element Type</label>
+                            <select style={LS.sel} value={cfg.element} onChange={e => update("element", e.target.value)}>
+                                {CAT.elements.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
+                            </select>
 
-          useEffect(()=>{
-            const el=mountRef.current;if(!el)return;
-            const R=S.current;
-            const W=el.clientWidth,H=el.clientHeight;
-            R.scene=new THREE.Scene();
-            R.scene.background=new THREE.Color(0xEEF0F6);
-            R.cam=new THREE.PerspectiveCamera(34,W/H,0.1,200);
-            R.cam.position.set(3,4,18);
-            R.cam.lookAt(0,0,0);
-            R.ren=new THREE.WebGLRenderer({antialias:true});
-            R.ren.setSize(W,H);R.ren.setPixelRatio(Math.min(devicePixelRatio,2));
-            R.ren.shadowMap.enabled=true;R.ren.shadowMap.type=THREE.PCFSoftShadowMap;
-            el.appendChild(R.ren.domElement);
-            R.scene.add(new THREE.AmbientLight(0xffffff,0.6));
-            const d1=new THREE.DirectionalLight(0xffffff,1.1);d1.position.set(5,14,8);d1.castShadow=true;d1.shadow.mapSize.width=2048;d1.shadow.mapSize.height=2048;R.scene.add(d1);
-            const d2=new THREE.DirectionalLight(0xDDEEFF,0.5);d2.position.set(-8,6,-5);R.scene.add(d2);
-            const d3=new THREE.PointLight(0xFFFFEE,0.4,40);d3.position.set(3,-5,10);R.scene.add(d3);
-            const gp=new THREE.Mesh(new THREE.PlaneGeometry(60,60),new THREE.MeshStandardMaterial({color:0xDDDFE8,roughness:1}));
-            gp.rotation.x=-Math.PI/2;gp.position.y=-13;gp.receiveShadow=true;R.scene.add(gp);
-            R.grp=new THREE.Group();R.scene.add(R.grp);
-            const md=e=>{R.drag=true;R.mx=e.clientX;R.my=e.clientY;};
-            const mu=()=>{R.drag=false;};
-            const mm=e=>{if(!R.drag)return;R.rotY+=(e.clientX-R.mx)*0.009;R.rotX+=(e.clientY-R.my)*0.009;R.rotX=Math.max(-0.6,Math.min(0.6,R.rotX));R.mx=e.clientX;R.my=e.clientY;};
-            const mw=e=>{R.cam.position.z=Math.max(8,Math.min(30,R.cam.position.z+e.deltaY*0.015));};
-            el.addEventListener("mousedown",md);window.addEventListener("mouseup",mu);window.addEventListener("mousemove",mm);el.addEventListener("wheel",mw);
-            const loop=()=>{R.frame=requestAnimationFrame(loop);if(!R.drag)R.rotY+=0.002;if(R.grp){R.grp.rotation.y=R.rotY;R.grp.rotation.x=R.rotX;}R.ren.render(R.scene,R.cam);};
-            loop();
-            const onR=()=>{const W=el.clientWidth,H=el.clientHeight;R.cam.aspect=W/H;R.cam.updateProjectionMatrix();R.ren.setSize(W,H);};
-            window.addEventListener("resize",onR);
-            return()=>{cancelAnimationFrame(R.frame);el.removeEventListener("mousedown",md);window.removeEventListener("mouseup",mu);window.removeEventListener("mousemove",mm);el.removeEventListener("wheel",mw);window.removeEventListener("resize",onR);R.ren.dispose();if(el.contains(R.ren.domElement))el.removeChild(R.ren.domElement);};
-          },[]);
+                            <label style={LS.lbl}>Junction</label>
+                            <select style={LS.sel} value={cfg.junction} onChange={e => update("junction", e.target.value)}>
+                                {CAT.junctions.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            </select>
 
-          useEffect(()=>{
-            const R=S.current;const g=R.grp;if(!g)return;
-            while(g.children.length){const o=g.children[0];o.geometry?.dispose();if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material?.dispose();g.remove(o);}
-            const tcDef=CAT.tcTypes.find(t=>t.code===cfg.tcType),shDef=CAT.sheaths.find(s=>s.code===cfg.sheath),cbDef=CAT.cables.find(c=>c.code===cfg.cable),twDef=CAT.thermowells.find(t=>t.code===cfg.thermowell);
-            const mesh=(geo,col,met=0.7,rgh=0.25,emCol=null,emInt=0)=>{
-              const mat=new THREE.MeshStandardMaterial({color:col,metalness:met,roughness:rgh,side:THREE.FrontSide});
-              if(emCol){mat.emissive=new THREE.Color(emCol);mat.emissiveIntensity=emInt;}
-              const m=new THREE.Mesh(geo,mat);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;
-            };
-            const sR=Math.max(0.095,cfg.diameter/38),sC=shDef?.col??0xCCCCCC,tC=tcDef?.col??0xE07030;
-            const sL=9.0;
-            const sheath=mesh(new THREE.CylinderGeometry(sR,sR,sL,32),sC,0.88,0.12);sheath.position.y=-sL/2-0.5;
-            const hiR=sR*0.95;const hi=mesh(new THREE.CylinderGeometry(hiR,hiR,sL*0.92,8),0xFFFFFF,0.0,0.0);hi.position.y=sheath.position.y;
-            const wireL=sL*0.4;const wire=mesh(new THREE.CylinderGeometry(sR*0.3,sR*0.3,wireL,8),tC,0.4,0.55);wire.position.y=-sL-0.5+wireL/2+0.05;
-            const tipY=-sL-0.5,tipC=cfg.junction==="EX"?tC:sC;
-            const tip=mesh(new THREE.SphereGeometry(sR*1.02,22,22),tipC,0.8,0.15,cfg.junction==="EX"?tC:null,0.3);tip.position.y=tipY;
-            if(cfg.junction==="EX"){const glow=mesh(new THREE.SphereGeometry(sR*0.5,12,12),tC,0.1,0.5,tC,0.9);glow.position.y=tipY-sR*1.1;}
-            const fitY=-3.8,BRASS=0xB8892A,BRASS2=0xC89A38;
-            if(cfg.connection.startsWith("F")){
-              const fR=cfg.connection==="F600"?1.65:cfg.connection==="F300"?1.42:1.22;
-              const fl=mesh(new THREE.CylinderGeometry(fR,fR,0.38,40),0x909098,0.65,0.3);fl.position.y=fitY;
-            } else {
-              mesh(new THREE.CylinderGeometry(sR*3.8,sR*3.8,0.55,6),BRASS,0.62,0.32).position.y=fitY+0.62;
-              mesh(new THREE.CylinderGeometry(sR*3.2,sR*3.2,0.90,32),BRASS2,0.58,0.38).position.y=fitY;
-              mesh(new THREE.CylinderGeometry(sR*3.8,sR*3.8,0.55,6),BRASS,0.62,0.32).position.y=fitY-0.62;
-            }
-            if(cfg.thermowell!=="None"){
-              const twL=3.5,twRroot=sR*3.8,twCol=cfg.twMaterial==="WC"?0x6A6840:0xB0B0BA;
-              mesh(new THREE.CylinderGeometry(twRroot,twRroot,twL,30),twCol,0.8,0.2).position.y=tipY-twL/2;
-            }
-            if(cfg.head!=="None"){
-              const SILVER=0xAAAAAE;
-              mesh(new THREE.CylinderGeometry(sR*3.0,sR*2.8,0.7,28),SILVER,0.72,0.22).position.y=0.1;
-              mesh(new THREE.CylinderGeometry(0.8,0.74,0.85,36),SILVER,0.68,0.28).position.y=0.75;
-              mesh(new THREE.SphereGeometry(0.81,36,20,0,Math.PI*2,0,Math.PI/2),SILVER,0.62,0.3).position.y=1.2;
-            }
-          },[cfg]);
-          return(<div ref={mountRef} style={{width:"100%",height:"100%",position:"relative",cursor:"grab"}}></div>);
-        }
+                            <label style={LS.lbl}>Sheath Material</label>
+                            <select style={LS.sel} value={cfg.sheath} onChange={e => update("sheath", e.target.value)}>
+                                {CAT.sheaths.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            </select>
 
-        /* --- UI COMPONENTS --- */
-        const LS={lbl:{fontSize:10,fontWeight:700,color:"#1E3A7A",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,marginTop:12,display:"block"},sel:{width:"100%",background:"#fff",border:"1.5px solid #CBD5E1",borderRadius:6,padding:"7px 10px",fontSize:12,color:"#1E293B",outline:"none",cursor:"pointer"},inp:{width:"100%",background:"#fff",border:"1.5px solid #CBD5E1",borderRadius:6,padding:"7px 10px",fontSize:12,color:"#1E293B",outline:"none"}};
-        function Box({title,icon,children}){return(<div style={{background:"#fff",borderRadius:10,border:"1.5px solid #E2E8F0",marginBottom:10,overflow:"hidden",boxShadow:"0 1px 4px rgba(30,60,130,0.06)"}}><div style={{background:"linear-gradient(90deg,#1E3A7A,#2563EB)",padding:"7px 12px",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>{icon}</span><span style={{fontSize:10,fontWeight:800,color:"#fff",textTransform:"uppercase",letterSpacing:"0.15em"}}>{title}</span></div><div style={{padding:"2px 12px 12px"}}>{children}</div></div>);}
-        function SRow({label,value,accent}){return(<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"5px 0",borderBottom:"1px solid #F1F5F9",gap:8}}><span style={{fontSize:11,color:"#94A3B8",flexShrink:0,minWidth:116}}>{label}</span><span style={{fontSize:accent?15:12,color:accent?"#1E3A7A":"#1E293B",fontFamily:accent?"'JetBrains Mono',monospace":"inherit",fontWeight:accent?800:500,textAlign:"right"}}>{value}</span></div>);}
+                            <label style={LS.lbl}>Diameter (mm)</label>
+                            <select style={LS.sel} value={cfg.diameter} onChange={e => update("diameter", e.target.value)}>
+                                {CAT.diameters.map(d => <option key={d} value={d}>{d} mm</option>)}
+                            </select>
 
-        /* --- MAIN APP --- */
-        function App(){
-          const [cfg,setCfg]=useState({tcType:"K",element:"S",junction:"UN",sheath:"316",diameter:6,length:300,head:"C",thermowell:"None",twMaterial:"316",connection:"NPT",fittingThread:'1/2"',insertionLen:150,cable:"D",cableLen:1.5,processTemp:""});
-          const [tab,setTab]=useState("bom");
-          const [dl,setDl]=useState(false);
-          const set=(k,v)=>setCfg(p=>({...p,[k]:v}));
-          const mc=deriveModel(cfg);
-          const val=validate(cfg);
-          const bom=makeBOM(cfg);
-          const tc=CAT.tcTypes.find(t=>t.code===cfg.tcType);
+                            <label style={LS.lbl}>Process Connection</label>
+                            <select style={LS.sel} value={cfg.connection} onChange={e => update("connection", e.target.value)}>
+                                {CAT.connections.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            </select>
 
-          const handleDl=()=>{setDl(true);try{downloadDatasheet(cfg);}catch(e){console.error(e);}setTimeout(()=>setDl(false),1500);};
+                            <label style={LS.lbl}>Terminal Head</label>
+                            <select style={LS.sel} value={cfg.head} onChange={e => update("head", e.target.value)}>
+                                {CAT.heads.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            </select>
 
-          return(
-            <div style={{display:"flex",height:"100vh",overflow:"hidden",background:"#F0F4FA",fontFamily:"sans-serif",color:"#1E293B"}}>
-              {/* Left Config Panel */}
-              <div style={{width:274,background:"#F8FAFF",borderRight:"1.5px solid #E2E8F0",display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",padding:"10px"}}>
-                <div style={{padding:"14px",borderBottom:"1.5px solid #E2E8F0",background:"#fff",marginBottom:10,borderRadius:8}}>
-                  <div style={{fontSize:17,fontWeight:800,color:"#1E3A7A"}}>TC Configurator</div>
+                            <label style={LS.lbl}>Thermowell</label>
+                            <select style={LS.sel} value={cfg.thermowell} onChange={e => update("thermowell", e.target.value)}>
+                                {CAT.thermowells.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* MAIN VIEW */}
+                    <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column" }}>
+                        <div style={{ padding: "15px 30px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                                <span style={{ color: "#64748B", fontSize: "12px" }}>MODEL IDENTIFIER</span>
+                                <div style={{ fontSize: "20px", fontWeight: "800", color: "#1F2937" }}>T-101-{cfg.tcType}-{cfg.diameter}-{cfg.element}</div>
+                            </div>
+                            <button style={{ background: "#ffa600", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "4px", fontWeight: "bold", cursor: "pointer" }}>
+                                EXPORT DATASHEET
+                            </button>
+                        </div>
+                        <div id="canvas-container" style={{ flex: 1, background: "#F9FAFB" }}>
+                            <Viewer3D cfg={cfg} />
+                        </div>
+                    </div>
                 </div>
-                <Box title="TC Element" icon="⚡">
-                  <label style={LS.lbl}>TC Type</label>
-                  <select style={LS.sel} value={cfg.tcType} onChange={e=>set("tcType",e.target.value)}>
-                    {CAT.tcTypes.map(t=><option key={t.code} value={t.code}>Type {t.code}</option>)}
-                  </select>
-                  <label style={LS.lbl}>Sheath Material</label>
-                  <select style={LS.sel} value={cfg.sheath} onChange={e=>set("sheath",e.target.value)}>
-                    {CAT.sheaths.map(m=><option key={m.code} value={m.code}>{m.name}</option>)}
-                  </select>
-                </Box>
-              </div>
+            );
+        }
 
-              {/* Center 3D Panel */}
-              <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
-                <div style={{height:50,background:"#fff",borderBottom:"1.5px solid #E2E8F0",display:"flex",alignItems:"center",padding:"0 18px",gap:16}}>
-                  <div style={{fontSize:22,fontWeight:800,color:"#1E3A7A"}}>{mc}</div>
-                </div>
-                <div style={{flex:1}}>
-                  <Viewer3D cfg={cfg}/>
-                </div>
-              </div>
+        function Viewer3D({ cfg }) {
+            const mountRef = useRef(null);
+            useEffect(() => {
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xF9FAFB);
+                const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+                mountRef.current.appendChild(renderer.domElement);
 
-              {/* Right Panel */}
-              <div style={{width:300,background:"#fff",borderLeft:"1.5px solid #E2E8F0",display:"flex",flexDirection:"column"}}>
-                <div style={{padding:14,flex:1,overflowY:"auto"}}>
-                   <button onClick={handleDl} disabled={dl} style={{width:"100%",padding:"11px 0",background:"#1E3A7A",color:"#fff",fontWeight:800,fontSize:12,border:"none",borderRadius:8,cursor:"pointer"}}>
-                    {dl?"Downloading...":"📄 Download Datasheet"}
-                  </button>
-                  <div style={{marginTop:20}}>
-                     {bom.map((r,i)=>(
-                      <div key={i} style={{fontSize:11,padding:5,borderBottom:"1px solid #eee"}}>
-                        <b>{r.item}</b>: {r.spec}
-                      </div>
-                     ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
+                const light = new THREE.DirectionalLight(0xffffff, 1);
+                light.position.set(5, 5, 5);
+                scene.add(light);
+                scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+                const group = new THREE.Group();
+                scene.add(group);
+
+                // Simple Cylinder representing the TC
+                const material = new THREE.MeshStandardMaterial({ color: 0x94A3B8, metalness: 0.8, roughness: 0.2 });
+                const sheath = new THREE.Mesh(new THREE.CylinderGeometry(cfg.diameter/20, cfg.diameter/20, 10, 32), material);
+                group.add(sheath);
+
+                if (cfg.head !== "None") {
+                    const head = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+                    head.position.y = 5.5;
+                    group.add(head);
+                }
+
+                camera.position.z = 15;
+
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    group.rotation.y += 0.01;
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                return () => { mountRef.current.removeChild(renderer.domElement); };
+            }, [cfg]);
+
+            return <div ref={mountRef} style={{ width: "100%", height: "100%" }} />;
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
