@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-import * as THREE from "three";
+const { useState, useEffect, useRef } = React;
+const THREE = window.THREE;
+export default function App(){ ... } // CHANGE THIS TO:
+function App(){ ... }
 
 /* ═══════════ CATALOG ═══════════════════════════════════════════ */
 const CAT = {
