@@ -3,15 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempsens | Thermocouple Configurator</title>
+    <title>Tempsens | Industrial TC Configurator</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <style>
-        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F3F4F6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
+        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F3F4F6; font-family: 'Inter', -apple-system, sans-serif; }
+        .sidebar { width: 320px; background: #FFFFFF; border-right: 1px solid #E5E7EB; display: flex; flexDirection: column; height: 100vh; flex-shrink: 0; }
+        .header { background: #2D2D2D; padding: 20px; border-bottom: 4px solid #ffa600; }
+        .config-area { padding: 15px; overflow-y: auto; flex: 1; }
+        .section-title { font-size: 11px; font-weight: 800; color: #ffa600; text-transform: uppercase; letter-spacing: 1px; margin: 15px 0 10px; border-bottom: 1px solid #EEE; padding-bottom: 4px; }
+        label { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 4px; }
+        select, input { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #D1D5DB; fontSize: 12px; margin-bottom: 12px; background: #fff; box-sizing: border-box; }
+        .model-bar { padding: 15px 30px; background: #fff; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: space-between; align-items: center; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #DDD; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -22,33 +29,22 @@
         const THREE = window.THREE;
 
         const CAT = {
-          tcTypes: [
-            { code:"K", name:"Chromel / Alumel", col:0xE07030 },
-            { code:"J", name:"Iron / Constantan", col:0x4477EE },
-            { code:"N", name:"Nicrosil / Nisil", col:0xEEAA00 },
-            { code:"T", name:"Copper / Constantan", col:0xCC7733 },
-            { code:"R", name:"Pt-13%Rh / Pure Pt", col:0xDDDDD0 },
-            { code:"S", name:"Pt-10%Rh / Pure Pt", col:0xE0E0D8 },
-            { code:"B", name:"Pt-30%Rh / Pt-6%Rh", col:0xEEDDBB }
-          ],
-          elements:[{code:"S",label:"Simplex"},{code:"D",label:"Duplex"}],
-          junctions:[{code:"GN",name:"Grounded"},{code:"UN",name:"Ungrounded"},{code:"EX",name:"Exposed"}],
-          sheaths:[{code:"316",name:"SS 316"},{code:"310",name:"SS 310"},{code:"600",name:"Inconel-600"}],
-          diameters:[1, 1.5, 3, 4.5, 6, 8],
-          connections:[{code:"NPT",name:"NPT Thread"},{code:"BSP",name:"BSP Thread"},{code:"F150",name:"ANSI Flange #150"}],
-          heads:[{code:"C",name:"Standard Head"},{code:"EB",name:"Ex-Proof Head"},{code:"None",name:"No Head"}],
-          thermowells:[{code:"None",name:"No Thermowell"},{code:"Straight",name:"Straight"},{code:"Tapered",name:"Tapered"}]
-        };
-
-        const LS = {
-            lbl: { fontSize: "10px", fontWeight: "800", color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "4px", display: "block" },
-            sel: { width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #D1D5DB", fontSize: "12px", marginBottom: "12px", background: "#fff" }
+            tcTypes: ["K", "J", "N", "T", "R", "S", "B"],
+            elements: ["Simplex", "Duplex"],
+            sheaths: ["SS 316", "SS 310", "Inconel-600", "Incoloy-800", "Ceramic (Ker-610)"],
+            heads: ["Standard (Weatherproof)", "Ex-Proof (Flameproof)", "Miniature", "None"],
+            connections: ["1/2\" NPT", "1/2\" BSP", "Adjustable Flange", "Fixed Flange", "Nipple-Union-Nipple"],
+            thermowells: ["None", "Straight", "Tapered", "Stepped"],
+            twMaterials: ["SS 316", "SS 310", "Hastelloy-C", "Monel"],
+            cables: ["PVC", "Teflon", "Fiberglass", "SS Braided", "None"]
         };
 
         function App() {
             const [cfg, setCfg] = useState({
-                tcType: "K", element: "S", junction: "UN", sheath: "316",
-                diameter: 6, connection: "NPT", head: "C", thermowell: "None"
+                tcType: "K", element: "Simplex", sheath: "SS 316", length: 300,
+                head: "Standard (Weatherproof)", connection: "1/2\" NPT", 
+                twType: "None", twMaterial: "SS 316", twLength: 250,
+                cable: "None", cableLen: 2, processTemp: 450
             });
 
             const update = (k, v) => setCfg(p => ({ ...p, [k]: v }));
@@ -56,65 +52,93 @@
             return (
                 <div style={{ display: "flex", height: "100vh" }}>
                     {/* SIDEBAR */}
-                    <div style={{ width: "300px", background: "#FFFFFF", borderRight: "1px solid #E5E7EB", display: "flex", flexDirection: "column" }}>
-                        <div style={{ background: "#2D2D2D", padding: "20px", borderBottom: "4px solid #ffa600" }}>
-                            <div style={{ color: "#ffa600", fontWeight: "900", fontSize: "18px", letterSpacing: "1px" }}>TEMPSENS</div>
-                            <div style={{ color: "#FFFFFF", fontSize: "10px", opacity: 0.8 }}>THERMAL SOLUTIONS CONFIGURATOR</div>
+                    <div className="sidebar">
+                        <div className="header">
+                            <div style={{ color: "#ffa600", fontWeight: "900", fontSize: "20px" }}>TEMPSENS</div>
+                            <div style={{ color: "#FFFFFF", fontSize: "10px", opacity: 0.7 }}>PRECISION THERMAL ENGINEERING</div>
                         </div>
                         
-                        <div style={{ padding: "20px", overflowY: "auto", flex: 1 }}>
-                            <label style={LS.lbl}>Thermocouple Type</label>
-                            <select style={LS.sel} value={cfg.tcType} onChange={e => update("tcType", e.target.value)}>
-                                {CAT.tcTypes.map(t => <option key={t.code} value={t.code}>Type {t.code}</option>)}
+                        <div className="config-area">
+                            <div className="section-title">TC Element & Sheath</div>
+                            <label>TC Type</label>
+                            <select value={cfg.tcType} onChange={e => update("tcType", e.target.value)}>
+                                {CAT.tcTypes.map(t => <option key={t} value={t}>Type {t}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Element Type</label>
-                            <select style={LS.sel} value={cfg.element} onChange={e => update("element", e.target.value)}>
-                                {CAT.elements.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
+                            <label>Element</label>
+                            <select value={cfg.element} onChange={e => update("element", e.target.value)}>
+                                {CAT.elements.map(e => <option key={e} value={e}>{e}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Junction</label>
-                            <select style={LS.sel} value={cfg.junction} onChange={e => update("junction", e.target.value)}>
-                                {CAT.junctions.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            <label>Sheath Material</label>
+                            <select value={cfg.sheath} onChange={e => update("sheath", e.target.value)}>
+                                {CAT.sheaths.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Sheath Material</label>
-                            <select style={LS.sel} value={cfg.sheath} onChange={e => update("sheath", e.target.value)}>
-                                {CAT.sheaths.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            <label>Immersion Length (L) mm</label>
+                            <input type="number" value={cfg.length} onChange={e => update("length", e.target.value)} />
+
+                            <div className="section-title">Process Connection</div>
+                            <label>Head Type</label>
+                            <select value={cfg.head} onChange={e => update("head", e.target.value)}>
+                                {CAT.heads.map(h => <option key={h} value={h}>{h}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Diameter (mm)</label>
-                            <select style={LS.sel} value={cfg.diameter} onChange={e => update("diameter", e.target.value)}>
-                                {CAT.diameters.map(d => <option key={d} value={d}>{d} mm</option>)}
+                            <label>Thread / Flange</label>
+                            <select value={cfg.connection} onChange={e => update("connection", e.target.value)}>
+                                {CAT.connections.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Process Connection</label>
-                            <select style={LS.sel} value={cfg.connection} onChange={e => update("connection", e.target.value)}>
-                                {CAT.connections.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            <div className="section-title">Thermowell</div>
+                            <label>Well Type</label>
+                            <select value={cfg.twType} onChange={e => update("twType", e.target.value)}>
+                                {CAT.thermowells.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Terminal Head</label>
-                            <select style={LS.sel} value={cfg.head} onChange={e => update("head", e.target.value)}>
-                                {CAT.heads.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
+                            {cfg.twType !== "None" && (
+                                <>
+                                    <label>Well Material</label>
+                                    <select value={cfg.twMaterial} onChange={e => update("twMaterial", e.target.value)}>
+                                        {CAT.twMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                    <label>Well Length (U) mm</label>
+                                    <input type="number" value={cfg.twLength} onChange={e => update("twLength", e.target.value)} />
+                                </>
+                            )}
+
+                            <div className="section-title">Extension & Data</div>
+                            <label>Cable Type</label>
+                            <select value={cfg.cable} onChange={e => update("cable", e.target.value)}>
+                                {CAT.cables.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
 
-                            <label style={LS.lbl}>Thermowell</label>
-                            <select style={LS.sel} value={cfg.thermowell} onChange={e => update("thermowell", e.target.value)}>
-                                {CAT.thermowells.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
-                            </select>
+                            {cfg.cable !== "None" && (
+                                <>
+                                    <label>Cable Length (m)</label>
+                                    <input type="number" value={cfg.cableLen} onChange={e => update("cableLen", e.target.value)} />
+                                </>
+                            )}
+
+                            <label>Process Temperature (°C)</label>
+                            <input type="number" value={cfg.processTemp} onChange={e => update("processTemp", e.target.value)} />
                         </div>
                     </div>
 
                     {/* MAIN VIEW */}
                     <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column" }}>
-                        <div style={{ padding: "15px 30px", background: "#fff", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div className="model-bar">
                             <div>
-                                <span style={{ color: "#64748B", fontSize: "12px" }}>MODEL IDENTIFIER</span>
-                                <div style={{ fontSize: "20px", fontWeight: "800", color: "#1F2937" }}>T-101-{cfg.tcType}-{cfg.diameter}-{cfg.element}</div>
+                                <span style={{ color: "#64748B", fontSize: "11px", fontWeight: "700" }}>CURRENT CONFIGURATION</span>
+                                <div style={{ fontSize: "22px", fontWeight: "800", color: "#2D2D2D" }}>
+                                    T-{cfg.tcType}-{cfg.length}-{cfg.element[0]}
+                                </div>
                             </div>
-                            <button style={{ background: "#ffa600", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "4px", fontWeight: "bold", cursor: "pointer" }}>
-                                EXPORT DATASHEET
-                            </button>
+                            <div style={{textAlign: 'right'}}>
+                                <div style={{fontSize: '11px', color: '#64748B'}}>OPERATING LIMIT</div>
+                                <div style={{fontSize: '16px', fontWeight: '700', color: cfg.processTemp > 1000 ? '#EF4444' : '#10B981'}}>
+                                    {cfg.processTemp}°C
+                                </div>
+                            </div>
                         </div>
                         <div id="canvas-container" style={{ flex: 1, background: "#F9FAFB" }}>
                             <Viewer3D cfg={cfg} />
@@ -127,42 +151,54 @@
         function Viewer3D({ cfg }) {
             const mountRef = useRef(null);
             useEffect(() => {
+                const w = mountRef.current.clientWidth, h = mountRef.current.clientHeight;
                 const scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xF9FAFB);
-                const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
+                const camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 1000);
                 const renderer = new THREE.WebGLRenderer({ antialias: true });
-                renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+                renderer.setSize(w, h);
                 mountRef.current.appendChild(renderer.domElement);
 
-                const light = new THREE.DirectionalLight(0xffffff, 1);
-                light.position.set(5, 5, 5);
-                scene.add(light);
-                scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                const sun = new THREE.DirectionalLight(0xffffff, 1);
+                sun.position.set(5, 10, 7);
+                scene.add(sun);
 
                 const group = new THREE.Group();
                 scene.add(group);
 
-                // Simple Cylinder representing the TC
-                const material = new THREE.MeshStandardMaterial({ color: 0x94A3B8, metalness: 0.8, roughness: 0.2 });
-                const sheath = new THREE.Mesh(new THREE.CylinderGeometry(cfg.diameter/20, cfg.diameter/20, 10, 32), material);
+                // Sheath
+                const sMat = new THREE.MeshStandardMaterial({ color: 0xCBD5E1, metalness: 0.9, roughness: 0.1 });
+                const sheath = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 32), sMat);
                 group.add(sheath);
 
+                // Head
                 if (cfg.head !== "None") {
-                    const head = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-                    head.position.y = 5.5;
+                    const hMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5 });
+                    const head = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.8, 1.5, 6), hMat);
+                    head.position.y = 4.7;
                     group.add(head);
                 }
 
-                camera.position.z = 15;
+                // Thermowell
+                if (cfg.twType !== "None") {
+                    const twMat = new THREE.MeshStandardMaterial({ color: 0x94A3B8, transparent: true, opacity: 0.6 });
+                    const well = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 6, 32), twMat);
+                    well.position.y = -2;
+                    group.add(well);
+                }
+
+                camera.position.set(8, 5, 12);
+                camera.lookAt(0, 0, 0);
 
                 const animate = () => {
                     requestAnimationFrame(animate);
-                    group.rotation.y += 0.01;
+                    group.rotation.y += 0.005;
                     renderer.render(scene, camera);
                 };
                 animate();
 
-                return () => { mountRef.current.removeChild(renderer.domElement); };
+                return () => { if(mountRef.current) mountRef.current.removeChild(renderer.domElement); };
             }, [cfg]);
 
             return <div ref={mountRef} style={{ width: "100%", height: "100%" }} />;
