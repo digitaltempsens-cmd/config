@@ -1,207 +1,301 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tempsens | Industrial Configurator</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <style>
-        body, html, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #F3F4F6; font-family: 'Inter', sans-serif; }
-        .sidebar { width: 340px; background: #FFF; border-right: 1px solid #D1D5DB; height: 100vh; display: flex; flex-direction: column; flex-shrink: 0; }
-        .header { background: #2D2D2D; padding: 20px; border-bottom: 4px solid #ffa600; }
-        .config-area { padding: 20px; overflow-y: auto; flex: 1; }
-        .section-title { font-size: 11px; font-weight: 800; color: #ffa600; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px; border-bottom: 1px solid #EEE; padding-bottom: 5px; }
-        label { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; display: block; margin-bottom: 4px; }
-        select, input { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #D1D5DB; font-size: 13px; margin-bottom: 15px; background: #FFF; box-sizing: border-box; }
-        .warning-box { background: #FEF2F2; border: 1px solid #FCA5A5; color: #B91C1C; padding: 10px; border-radius: 6px; font-size: 11px; margin-bottom: 15px; font-weight: 600; }
-        .model-bar { padding: 20px 30px; background: #FFF; border-bottom: 1px solid #E5E7EB; display: flex; justify-content: space-between; align-items: center; }
-        .btn-export { background: #ffa600; color: #FFF; border: none; padding: 12px 24px; border-radius: 4px; font-weight: 800; cursor: pointer; transition: 0.2s; }
-        .btn-export:hover { background: #e69500; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tempsens | Thermocouple Configurator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0c0e12;--panel:#10131a;--card:#151921;--hover:#1b2030;
+  --b0:#1e2536;--b1:#28334a;
+  --blue:#2b7fff;--bdim:#1a4d9e;--bglow:rgba(43,127,255,.13);
+  --orange:#f07d24;--green:#28c96e;--red:#e03c3c;--yellow:#f0c040;
+  --t0:#eef1f8;--t1:#d0d8e8;--t2:#7a8499;--t3:#3e4a5e;--steel:#8fa3bf;
+  --mono:'IBM Plex Mono',monospace;
+  --head:'Rajdhani',sans-serif;
+  --tech:'Share Tech Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t1);font-family:var(--head);font-size:14px;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* TOP BAR */
+.topbar{height:44px;background:var(--panel);border-bottom:1px solid var(--b0);display:flex;align-items:center;padding:0 16px;gap:18px;flex-shrink:0}
+.logo{font-family:var(--head);font-weight:700;font-size:16px;letter-spacing:2px;color:var(--t0);display:flex;align-items:center;gap:8px}
+.logo b{color:var(--blue)}
+.badge{background:var(--blue);color:#fff;font-size:9px;padding:1px 6px;font-family:var(--mono);letter-spacing:1px}
+.sep{width:1px;height:22px;background:var(--b0)}
+.subtitle{font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:1px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tbtn{height:28px;padding:0 13px;background:var(--card);border:1px solid var(--b1);color:var(--t2);font-family:var(--head);font-size:12px;font-weight:600;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
+.tbtn:hover{background:var(--hover);color:var(--t1);border-color:var(--blue)}
+.tbtn.pri{background:var(--blue);color:#fff;border-color:var(--blue)}
+.tbtn.pri:hover{background:#1a6ae8}
+.tbtn:disabled{opacity:.5;cursor:not-allowed}
+
+/* LAYOUT */
+.main{flex:1;display:grid;grid-template-columns:1fr 336px;overflow:hidden}
+
+/* VIEWPORT */
+.vp{position:relative;background:#07090d;overflow:hidden;border-right:1px solid var(--b0)}
+#c3d{display:block;width:100%;height:100%;cursor:crosshair}
+#c3d:active{cursor:grabbing}
+
+/* CAD corners */
+.corner{position:absolute;width:16px;height:16px;border-color:rgba(43,127,255,.35);border-style:solid;pointer-events:none;z-index:4}
+.corner.tl{top:8px;left:8px;border-width:1px 0 0 1px}
+.corner.tr{top:8px;right:8px;border-width:1px 1px 0 0}
+.corner.bl{bottom:8px;left:8px;border-width:0 0 1px 1px}
+.corner.br{bottom:8px;right:8px;border-width:0 1px 1px 0}
+
+/* Scanlines */
+.vp::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.02) 2px,rgba(0,0,0,.02) 4px);pointer-events:none;z-index:2}
+
+/* Viewport toolbar */
+.vtbar{position:absolute;top:12px;left:12px;display:flex;flex-direction:column;gap:4px;z-index:10}
+.vbtn{width:32px;height:32px;background:rgba(10,13,20,.9);border:1px solid var(--b1);color:var(--steel);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;font-family:var(--mono);transition:all .15s;backdrop-filter:blur(6px);user-select:none}
+.vbtn:hover,.vbtn.on{background:var(--bglow);border-color:var(--blue);color:var(--blue)}
+
+/* Viewport toggles */
+.vtogs{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:5px;z-index:10}
+.vtog{display:flex;align-items:center;gap:7px;background:rgba(10,13,20,.9);border:1px solid var(--b1);padding:5px 9px;cursor:pointer;backdrop-filter:blur(6px);transition:all .2s;user-select:none}
+.vtog:hover{border-color:var(--bdim)}
+.vtog.on{border-color:var(--blue);background:var(--bglow)}
+.vdot{width:8px;height:8px;border-radius:50%;background:var(--t3);transition:all .2s;flex-shrink:0}
+.vtog.on .vdot{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.vlbl{font-family:var(--mono);font-size:9px;color:var(--t2);letter-spacing:.8px}
+
+/* Part hover label */
+#partLabel{
+  position:absolute;background:rgba(8,10,16,.95);
+  border:1px solid var(--blue);border-left:3px solid var(--blue);
+  padding:5px 12px;font-family:var(--mono);font-size:10px;color:var(--steel);
+  pointer-events:none;z-index:20;opacity:0;transition:opacity .12s;
+  letter-spacing:.5px;white-space:nowrap;backdrop-filter:blur(4px);
+}
+
+/* Dimension canvas */
+#dimCv{position:absolute;inset:0;pointer-events:none;z-index:8}
+
+/* Loading spinner */
+#loader{
+  position:absolute;inset:0;background:#07090d;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;z-index:100;
+}
+.spin{width:40px;height:40px;border:2px solid var(--b1);border-top-color:var(--blue);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-txt{font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:2px}
+
+/* Status / material badge */
+#matbadge{position:absolute;bottom:30px;left:12px;font-family:var(--mono);font-size:9px;color:var(--steel);background:rgba(8,10,16,.88);padding:3px 8px;border:1px solid var(--b0);z-index:5;letter-spacing:.8px}
+.vstat{position:absolute;bottom:10px;left:12px;right:12px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:.8px;z-index:5;pointer-events:none}
+.vstl{display:flex;gap:14px}
+.vsi-k{color:var(--t3)}.vsi-v{color:var(--steel)}
+
+/* CONFIG PANEL */
+.cfg{background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+.cfghdr{padding:10px 16px;border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.cfgtitle{font-family:var(--head);font-weight:700;font-size:13px;letter-spacing:2px;color:var(--t0)}
+.stepctr{font-family:var(--mono);font-size:10px;color:var(--blue);background:var(--bglow);padding:3px 8px;border:1px solid var(--bdim)}
+.spnav{padding:8px 16px;display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--b0);flex-shrink:0}
+.spill{width:28px;height:22px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;background:var(--card);border:1px solid var(--b0);color:var(--t3);cursor:pointer;transition:all .15s}
+.spill:hover{border-color:var(--bdim);color:var(--steel)}
+.spill.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.spill.done{border-color:var(--green);color:var(--green);background:rgba(40,201,110,.07)}
+.steps{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--b0) transparent}
+.steps::-webkit-scrollbar{width:3px}
+.steps::-webkit-scrollbar-thumb{background:var(--b1)}
+.sb{padding:14px 16px;border-bottom:1px solid var(--b0);display:none}
+.sb.active{display:block}
+.stitle{font-family:var(--head);font-weight:700;font-size:15px;letter-spacing:1px;color:var(--t0);margin-bottom:3px;display:flex;align-items:center;gap:8px}
+.snum{font-family:var(--mono);font-size:10px;color:var(--blue);background:var(--bglow);padding:1px 6px;border:1px solid var(--bdim)}
+.sdesc{font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:12px;line-height:1.65}
+.fld{margin-bottom:10px}
+.flbl{font-family:var(--mono);font-size:10px;color:var(--t2);letter-spacing:.8px;margin-bottom:5px;display:flex;justify-content:space-between}
+.flbl span{color:var(--blue)}
+select{width:100%;background:var(--card);border:1px solid var(--b1);color:var(--t1);font-family:var(--mono);font-size:11px;padding:7px 28px 7px 10px;outline:none;appearance:none;cursor:pointer;transition:border .15s;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a8499'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+select:hover,select:focus{border-color:var(--blue)}
+select option{background:var(--card)}
+input[type=range]{width:100%;height:3px;background:var(--b1);border:none;cursor:pointer;outline:none;accent-color:var(--blue);display:block;margin-top:4px}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.rc{background:var(--card);border:1px solid var(--b0);padding:8px 10px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:2px}
+.rc:hover{border-color:var(--bdim);background:var(--hover)}
+.rc.sel{border-color:var(--blue);background:var(--bglow)}
+.rcdot{width:6px;height:6px;border-radius:50%;border:1px solid var(--b1);margin-bottom:3px;transition:all .15s}
+.rc.sel .rcdot{background:var(--blue);border-color:var(--blue);box-shadow:0 0 5px var(--blue)}
+.rclbl{font-family:var(--head);font-weight:600;font-size:12px;color:var(--t1);letter-spacing:.4px}
+.rcsub{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.vbox{margin-top:8px;padding:7px 10px;border-left:3px solid;font-family:var(--mono);font-size:10px;line-height:1.5;display:none}
+.vbox.err{border-color:var(--red);background:rgba(224,60,60,.07);color:var(--red);display:block}
+.vbox.warn{border-color:var(--yellow);background:rgba(240,192,64,.07);color:var(--yellow);display:block}
+.vbox.info{border-color:var(--blue);background:var(--bglow);color:var(--steel);display:block}
+.snbtns{display:flex;gap:8px;margin-top:14px}
+.snbtns button{flex:1;height:32px;background:var(--card);border:1px solid var(--b1);color:var(--t2);font-family:var(--head);font-weight:600;font-size:12px;letter-spacing:1px;cursor:pointer;transition:all .15s}
+.snbtns button:hover{border-color:var(--blue);color:var(--t1)}
+.snbtns .nb{background:var(--blue);border-color:var(--blue);color:#fff}
+.snbtns .nb:hover{background:#1a6ae8}
+.snbtns .gb{background:var(--green);border-color:var(--green);color:#fff}
+
+/* DATASHEET */
+.ds{height:148px;background:#090a0e;border-top:1px solid var(--b0);display:grid;grid-template-columns:1fr 336px;flex-shrink:0}
+.dsl{padding:10px 16px;border-right:1px solid var(--b0);overflow:hidden}
+.dshdr{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:2px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.dshdr::after{content:'';flex:1;height:1px;background:var(--b0)}
+.dsgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.dslbl{font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:2px}
+.dsval{font-family:var(--tech);font-size:14px;color:var(--blue)}
+.dsunit{font-family:var(--mono);font-size:8px;color:var(--t3)}
+.dsr{padding:10px 16px}
+.dscode{font-family:var(--tech);font-size:11px;color:var(--orange);letter-spacing:.8px;margin-bottom:4px;word-break:break-all}
+.dspn{font-family:var(--mono);font-size:10px;color:var(--t3);margin-bottom:8px}
+.dstags{display:flex;flex-wrap:wrap;gap:4px}
+.dtag{font-family:var(--mono);font-size:9px;padding:2px 6px;border:1px solid var(--b1);color:var(--t3)}
+.dtag.hi{border-color:var(--bdim);color:var(--blue)}
+
+/* GLB upload zone */
+.glb-zone{
+  margin-bottom:12px;
+  border:1px dashed var(--b1);
+  padding:12px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  position:relative;
+}
+.glb-zone:hover,.glb-zone.drag{border-color:var(--blue);background:var(--bglow)}
+.glb-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.glb-zone-icon{font-size:20px;margin-bottom:4px}
+.glb-zone-title{font-family:var(--head);font-weight:600;font-size:12px;color:var(--t2);letter-spacing:1px}
+.glb-zone-sub{font-family:var(--mono);font-size:9px;color:var(--t3);margin-top:2px}
+.glb-status{
+  display:none;margin-bottom:10px;padding:7px 10px;
+  border-left:3px solid var(--green);background:rgba(40,201,110,.07);
+  font-family:var(--mono);font-size:10px;color:var(--green);
+}
+</style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const THREE = window.THREE;
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <rect x="1" y="1" width="16" height="16" rx="1" stroke="#2b7fff" stroke-width="1.5" fill="none"/>
+      <line x1="9" y1="1" x2="9" y2="17" stroke="#2b7fff" stroke-width="1"/>
+      <circle cx="9" cy="9" r="2.5" fill="#2b7fff"/>
+    </svg>
+    TEMPSENS <b>PRO</b>
+    <div class="badge">CONFIGURATOR</div>
+  </div>
+  <div class="sep"></div>
+  <div class="subtitle">THERMOCOUPLE ASSEMBLY BUILDER v2.1</div>
+  <div class="topbar-right">
+    <button class="tbtn" onclick="resetAll()">↺ RESET</button>
+    <button class="tbtn" onclick="saveConfig()">⬡ SAVE JSON</button>
+    <button class="tbtn pri" id="pdfBtn" onclick="exportPDF()">↓ PDF DATASHEET</button>
+  </div>
+</div>
 
-        const DATA = {
-            types: {
-                "K": { name: "Chromel/Alumel", max: 1260 },
-                "J": { name: "Iron/Constantan", max: 760 },
-                "N": { name: "Nicrosil/Nisil", max: 1260 },
-                "R": { name: "Pt-13%Rh/Pt", max: 1450 },
-                "S": { name: "Pt-10%Rh/Pt", max: 1450 }
-            },
-            sheaths: ["SS 316", "SS 310", "Inconel 600", "Incoloy 800"],
-            flanges: ["ANSI 150# RF", "ANSI 300# RF", "ANSI 600# RF", "DIN DN25 PN16"],
-            heads: ["Standard Weatherproof (IP67)", "Flameproof (Ex-d IIC)", "None"]
-        };
+<!-- MAIN -->
+<div class="main">
 
-        function App() {
-            const [cfg, setCfg] = useState({
-                type: "K", sheath: "SS 316", length: 500, flange: "ANSI 150# RF",
-                head: "Standard Weatherproof (IP67)", temp: 400, junction: "Ungrounded"
-            });
-            const [warnings, setWarnings] = useState([]);
+  <!-- VIEWPORT -->
+  <div class="vp" id="vp">
+    <canvas id="c3d"></canvas>
 
-            useEffect(() => {
-                let w = [];
-                if (cfg.temp > DATA.types[cfg.type].max) w.push(`Type ${cfg.type} exceeds max operating limit of ${DATA.types[cfg.type].max}°C.`);
-                if (cfg.junction === "Exposed" && cfg.flange !== "None") w.push("Exposed junctions are not recommended for high-pressure flanged assemblies.");
-                if (cfg.temp > 1000 && cfg.sheath === "SS 316") w.push("SS 316 sheath is not suitable for temperatures above 850°C. Consider SS 310 or Inconel.");
-                setWarnings(w);
-            }, [cfg]);
+    <!-- Loader -->
+    <div id="loader">
+      <div class="spin"></div>
+      <div class="load-txt" id="loadTxt">INITIALISING...</div>
+    </div>
 
-            const exportPDF = () => {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                doc.setFillColor(45, 45, 45);
-                doc.rect(0, 0, 210, 40, 'F');
-                doc.setTextColor(255, 166, 0);
-                doc.setFontSize(22);
-                doc.text("TEMPSENS INSTRUMENTS", 15, 25);
-                
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(12);
-                doc.text("TECHNICAL DATASHEET: Flanged Thermocouple Assembly", 15, 50);
-                doc.line(15, 55, 195, 55);
+    <!-- CAD corners -->
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
 
-                const rows = [
-                    ["Thermocouple Type", cfg.type],
-                    ["Sheath Material", cfg.sheath],
-                    ["Immersion Length (L)", `${cfg.length} mm`],
-                    ["Process Connection", cfg.flange],
-                    ["Terminal Head", cfg.head],
-                    ["Hot Junction", cfg.junction],
-                    ["Design Temperature", `${cfg.temp}°C`]
-                ];
+    <!-- Left toolbar -->
+    <div class="vtbar">
+      <div class="vbtn" title="Fit View"   onclick="fitView()">⊕</div>
+      <div class="vbtn" title="Front View" onclick="setView('front')">F</div>
+      <div class="vbtn" title="Side View"  onclick="setView('side')">S</div>
+      <div class="vbtn" title="Top View"   onclick="setView('top')">T</div>
+      <div class="vbtn" title="ISO View"   onclick="setView('iso')">◈</div>
+    </div>
 
-                rows.forEach((row, i) => {
-                    doc.text(`${row[0]}:`, 15, 70 + (i * 10));
-                    doc.setFont(undefined, 'bold');
-                    doc.text(row[1], 80, 70 + (i * 10));
-                    doc.setFont(undefined, 'normal');
-                });
+    <!-- Right toggles -->
+    <div class="vtogs">
+      <div class="vtog" id="tog-wire"  onclick="toggleWire()"> <div class="vdot"></div><div class="vlbl">WIREFRAME</div></div>
+      <div class="vtog on" id="tog-dims"  onclick="toggleDims()"> <div class="vdot"></div><div class="vlbl">DIMENSIONS</div></div>
+      <div class="vtog on" id="tog-grid"  onclick="toggleGrid()"> <div class="vdot"></div><div class="vlbl">GRID FLOOR</div></div>
+      <div class="vtog on" id="tog-parts" onclick="toggleLabels()"><div class="vdot"></div><div class="vlbl">PART LABELS</div></div>
+    </div>
 
-                doc.save(`Tempsens_${cfg.type}_Config.pdf`);
-            };
+    <!-- Part hover label -->
+    <div id="partLabel"></div>
 
-            return (
-                <div style={{ display: "flex", height: "100vh" }}>
-                    <div className="sidebar">
-                        <div className="header">
-                            <div style={{ color: "#ffa600", fontWeight: "900", fontSize: "20px" }}>TEMPSENS</div>
-                            <div style={{ color: "#FFF", fontSize: "10px", opacity: 0.7 }}>A-110 FLANGED STANDARD</div>
-                        </div>
-                        <div className="config-area">
-                            {warnings.map((msg, i) => <div key={i} className="warning-box">⚠️ {msg}</div>)}
-                            
-                            <div className="section-title">Sensor Spec</div>
-                            <label>TC Type</label>
-                            <select value={cfg.type} onChange={e => setCfg({...cfg, type: e.target.value})}>
-                                {Object.keys(DATA.types).map(t => <option key={t} value={t}>Type {t}</option>)}
-                            </select>
+    <!-- Dim overlay -->
+    <canvas id="dimCv"></canvas>
 
-                            <label>Junction Type</label>
-                            <select value={cfg.junction} onChange={e => setCfg({...cfg, junction: e.target.value})}>
-                                <option>Grounded</option>
-                                <option>Ungrounded</option>
-                                <option>Exposed</option>
-                            </select>
+    <!-- Material badge -->
+    <div id="matbadge">MAT: 316 SS  |  FINISH: 2B  |  IP: 65</div>
 
-                            <div className="section-title">Mechanical</div>
-                            <label>Sheath Material</label>
-                            <select value={cfg.sheath} onChange={e => setCfg({...cfg, sheath: e.target.value})}>
-                                {DATA.sheaths.map(s => <option key={s} value={s}>{s}</option>)}
-                            </select>
-                            
-                            <label>Flange Rating</label>
-                            <select value={cfg.flange} onChange={e => setCfg({...cfg, flange: e.target.value})}>
-                                {DATA.flanges.map(f => <option key={f} value={f}>{f}</option>)}
-                            </select>
+    <!-- Status bar -->
+    <div class="vstat">
+      <div class="vstl">
+        <span><span class="vsi-k">ROT </span><span class="vsi-v" id="sRot">0°</span></span>
+        <span><span class="vsi-k">ZOOM </span><span class="vsi-v" id="sZoom">1.0×</span></span>
+        <span><span class="vsi-k">VERTS </span><span class="vsi-v" id="sVerts">—</span></span>
+      </div>
+      <span style="font-family:var(--mono);font-size:9px;color:var(--t3)">DRAG ROTATE · SCROLL ZOOM · HOVER PART</span>
+    </div>
+  </div>
 
-                            <label>Immersion Length (mm)</label>
-                            <input type="number" value={cfg.length} onChange={e => setCfg({...cfg, length: e.target.value})} />
+  <!-- CONFIG PANEL -->
+  <div class="cfg">
+    <div class="cfghdr">
+      <div class="cfgtitle">CONFIGURATION</div>
+      <div class="stepctr" id="stepctr">STEP 1 / 8</div>
+    </div>
+    <div class="spnav" id="spnav"></div>
+    <div class="steps" id="stepsWrap"></div>
+  </div>
+</div>
 
-                            <div className="section-title">Operating Data</div>
-                            <label>Process Temperature (°C)</label>
-                            <input type="number" value={cfg.temp} onChange={e => setCfg({...cfg, temp: e.target.value})} />
-                        </div>
-                    </div>
+<!-- DATASHEET BAR -->
+<div class="ds">
+  <div class="dsl">
+    <div class="dshdr">LIVE SPECIFICATION SUMMARY</div>
+    <div class="dsgrid">
+      <div><div class="dslbl">TYPE</div>    <div class="dsval" id="ds-type">K</div></div>
+      <div><div class="dslbl">MAX TEMP</div><div class="dsval" id="ds-temp">1260</div><div class="dsunit">°C</div></div>
+      <div><div class="dslbl">SHEATH</div>  <div class="dsval" id="ds-sh">SS316</div></div>
+      <div><div class="dslbl">INSERTION</div><div class="dsval" id="ds-ins">150</div><div class="dsunit">mm</div></div>
+      <div><div class="dslbl">DIA</div>     <div class="dsval" id="ds-dia">6</div><div class="dsunit">mm</div></div>
+      <div><div class="dslbl">ACCURACY</div><div class="dsval" id="ds-acc">±2.5°C</div></div>
+      <div><div class="dslbl">RESPONSE</div><div class="dsval" id="ds-resp">0.3</div><div class="dsunit">s</div></div>
+      <div><div class="dslbl">CONN.</div>   <div class="dsval" id="ds-conn">½NPT</div></div>
+      <div><div class="dslbl">IP CLASS</div><div class="dsval" id="ds-ip">IP65</div></div>
+      <div><div class="dslbl">STD</div>     <div class="dsval">IEC584</div></div>
+    </div>
+  </div>
+  <div class="dsr">
+    <div class="dscode" id="dscode">TSE-K-SS316-6D-150IL-½NPT-A-2M</div>
+    <div class="dspn">P/N: <span id="dspn" style="color:var(--t3)">— PENDING COMPLETION —</span></div>
+    <div class="dstags">
+      <div class="dtag hi">TYPE K</div><div class="dtag hi">SS 316</div>
+      <div class="dtag">IP65</div><div class="dtag">IEC 584</div>
+      <div class="dtag">½ NPT</div><div class="dtag">GROUNDED</div>
+    </div>
+  </div>
+</div>
 
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-                        <div className="model-bar">
-                            <div>
-                                <span style={{ color: "#64748B", fontSize: "11px", fontWeight: "700" }}>BASE MODEL: T-110</span>
-                                <div style={{ fontSize: "24px", fontWeight: "800", color: "#2D2D2D" }}>
-                                    TS-{cfg.type}-{cfg.length}-FL
-                                </div>
-                            </div>
-                            <button className="btn-export" onClick={exportPDF}>DOWNLOAD PDF</button>
-                        </div>
-                        <div style={{ flex: 1, background: "#F9FAFB" }}>
-                            <Viewer3D cfg={cfg} />
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        function Viewer3D({ cfg }) {
-            const mountRef = useRef(null);
-            useEffect(() => {
-                const scene = new THREE.Scene();
-                scene.background = new THREE.Color(0xF9FAFB);
-                const camera = new THREE.PerspectiveCamera(45, mountRef.current.clientWidth / mountRef.current.clientHeight, 0.1, 1000);
-                const renderer = new THREE.WebGLRenderer({ antialias: true });
-                renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-                mountRef.current.appendChild(renderer.domElement);
-
-                scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-                const sun = new THREE.DirectionalLight(0xffffff, 1);
-                sun.position.set(5, 10, 5);
-                scene.add(sun);
-
-                const group = new THREE.Group();
-                // Sheath
-                const sheath = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 8, 32), new THREE.MeshStandardMaterial({ color: 0xCBD5E1, metalness: 0.8 }));
-                group.add(sheath);
-
-                // Flange (Disc)
-                const flange = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.4, 32), new THREE.MeshStandardMaterial({ color: 0x94A3B8, metalness: 0.7 }));
-                flange.position.y = 1;
-                group.add(flange);
-
-                // Head
-                if (cfg.head !== "None") {
-                    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 1.5, 6), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-                    head.position.y = 4.8;
-                    group.add(head);
-                }
-
-                scene.add(group);
-                camera.position.set(8, 6, 12);
-                camera.lookAt(0, 0, 0);
-
-                const animate = () => {
-                    requestAnimationFrame(animate);
-                    group.rotation.y += 0.005;
-                    renderer.render(scene, camera);
-                };
-                animate();
-                return () => { if(mountRef.current) mountRef.current.innerHTML = ""; };
-            }, [cfg]);
-            return <div ref={mountRef} style={{ width: "100%", height: "100%" }} />;
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+<script>
+// ═══════════════════════════════════════════════════════
+//  EMBEDDED GEOMETRY — pre-parsed from thermocouple.glb
+//  5 parts: probe | fitting | neck | collar | head
+// ═══════════════════════════════════════════════════════
+const PARTS_GEO = {
+  probe:   { pos: "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
